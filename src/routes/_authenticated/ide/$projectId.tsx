@@ -3,9 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  PanelGroup,
+  Group as PanelGroup,
   Panel,
-  PanelResizeHandle,
+  Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import { FileTree, type FileNode } from "@/components/ide/FileTree";
 import { EditorPane } from "@/components/ide/EditorPane";
