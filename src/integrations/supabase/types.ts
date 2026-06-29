@@ -14,13 +14,233 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          model: string | null
+          project_id: string
+          role: string
+          tool_call_id: string | null
+          tool_calls: Json | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          project_id: string
+          role: string
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          project_id?: string
+          role?: string
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deployments: {
+        Row: {
+          created_at: string
+          id: string
+          logs: string | null
+          project_id: string
+          provider: string
+          status: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logs?: string | null
+          project_id: string
+          provider?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logs?: string | null
+          project_id?: string
+          provider?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deployments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_directory: boolean
+          language: string | null
+          path: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_directory?: boolean
+          language?: string | null
+          path: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_directory?: boolean
+          language?: string | null
+          path?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          github_repo: string | null
+          id: string
+          name: string
+          owner_id: string
+          template: string | null
+          updated_at: string
+          vercel_project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          github_repo?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          template?: string | null
+          updated_at?: string
+          vercel_project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          github_repo?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          template?: string | null
+          updated_at?: string
+          vercel_project_id?: string | null
+        }
+        Relationships: []
+      }
+      terminal_logs: {
+        Row: {
+          command: string
+          created_at: string
+          exit_code: number | null
+          id: string
+          output: string | null
+          project_id: string
+          status: string
+        }
+        Insert: {
+          command: string
+          created_at?: string
+          exit_code?: number | null
+          id?: string
+          output?: string | null
+          project_id: string
+          status?: string
+        }
+        Update: {
+          command?: string
+          created_at?: string
+          exit_code?: number | null
+          id?: string
+          output?: string | null
+          project_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "terminal_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      owns_project: { Args: { _project_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
