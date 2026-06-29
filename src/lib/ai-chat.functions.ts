@@ -171,7 +171,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
           role: m.role as NimMsg["role"],
           content: m.content ?? "",
         };
-        if (m.tool_calls) base.tool_calls = m.tool_calls as NimMsg["tool_calls"];
+        if (m.tool_calls) base.tool_calls = m.tool_calls as unknown as NimMsg["tool_calls"];
         if (m.tool_call_id) base.tool_call_id = m.tool_call_id;
         return base;
       })),
@@ -198,7 +198,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
         project_id: data.projectId,
         role: "assistant",
         content: msg.content ?? "",
-        tool_calls: msg.tool_calls ?? null,
+        tool_calls: (msg.tool_calls ?? null) as unknown as never,
         model: data.model,
       });
       messages.push({
