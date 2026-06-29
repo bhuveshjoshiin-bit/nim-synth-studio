@@ -203,7 +203,7 @@ function IdePage() {
         onBack={() => navigate({ to: "/dashboard" })}
       />
       <div className="flex-1 min-h-0">
-        <PanelGroup direction="horizontal">
+        <PanelGroup orientation="horizontal">
           {/* File tree */}
           <Panel defaultSize={16} minSize={10}>
             <FileTree
@@ -218,7 +218,7 @@ function IdePage() {
 
           {/* Center: editor + terminal */}
           <Panel defaultSize={56} minSize={30}>
-            <PanelGroup direction="vertical">
+            <PanelGroup orientation="vertical">
               <Panel defaultSize={70} minSize={20}>
                 <EditorPane
                   files={files}
