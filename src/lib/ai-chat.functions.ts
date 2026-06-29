@@ -160,10 +160,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
       content: data.message,
     });
 
-    const { callNim, type NimMessage } = await import("./nim.server").then((m) => ({
-      callNim: m.callNim,
-      type: undefined as unknown as typeof import("./nim.server").NimMessage,
-    }));
+    const { callNim } = await import("./nim.server");
     type NimMsg = import("./nim.server").NimMessage;
 
     const messages: NimMsg[] = [
