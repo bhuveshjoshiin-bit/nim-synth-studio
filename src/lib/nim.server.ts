@@ -9,7 +9,7 @@ export const NIM_MODELS = [
     id: "nvidia/llama-3.1-nemotron-70b-instruct",
     label: "Nemotron 70B (instruct-tuned)",
   },
-  { id: "qwen/qwen2.5-coder-32b-instruct", label: "Qwen 2.5 Coder 32B (coding)" },
+  { id: "qwen/qwen3-coder-480b-a35b-instruct", label: "Qwen3 Coder 480B (coding)" },
   { id: "mistralai/mixtral-8x22b-instruct-v0.1", label: "Mixtral 8x22B" },
   { id: "deepseek-ai/deepseek-r1", label: "DeepSeek R1 (reasoning)" },
 ] as const;

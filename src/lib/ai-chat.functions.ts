@@ -125,6 +125,8 @@ export const sendChatMessage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ChatInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const { NIM_MODELS, DEFAULT_NIM_MODEL } = await import("./nim.server");
+    const model = NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
 
     // Confirm ownership
     const { data: project, error: projErr } = await supabase
@@ -185,7 +187,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     while (step < MAX_STEPS) {
       step++;
       const response = await callNim({
-        model: data.model,
+        model: model,
         messages,
         tools: TOOLS,
       });
@@ -199,7 +201,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
         role: "assistant",
         content: msg.content ?? "",
         tool_calls: (msg.tool_calls ?? null) as unknown as never,
-        model: data.model,
+        model: model,
       });
       messages.push({
         role: "assistant",
