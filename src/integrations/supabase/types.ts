@@ -164,33 +164,42 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          current_phase: number
           description: string | null
           github_repo: string | null
           id: string
+          initial_prompt: string | null
           name: string
           owner_id: string
+          prd: Json | null
           template: string | null
           updated_at: string
           vercel_project_id: string | null
         }
         Insert: {
           created_at?: string
+          current_phase?: number
           description?: string | null
           github_repo?: string | null
           id?: string
+          initial_prompt?: string | null
           name: string
           owner_id: string
+          prd?: Json | null
           template?: string | null
           updated_at?: string
           vercel_project_id?: string | null
         }
         Update: {
           created_at?: string
+          current_phase?: number
           description?: string | null
           github_repo?: string | null
           id?: string
+          initial_prompt?: string | null
           name?: string
           owner_id?: string
+          prd?: Json | null
           template?: string | null
           updated_at?: string
           vercel_project_id?: string | null
