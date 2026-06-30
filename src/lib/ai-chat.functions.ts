@@ -125,7 +125,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ChatInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Fallback if client sent a model id that's no longer in the catalog
+    const { NIM_MODELS, DEFAULT_NIM_MODEL } = await import("./nim.server");
     const model = NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
 
     // Confirm ownership
