@@ -9,7 +9,7 @@ export const NIM_MODELS = [
     id: "nvidia/llama-3.1-nemotron-70b-instruct",
     label: "Nemotron 70B (instruct-tuned)",
   },
-  { id: "qwen/qwen3-coder-480b-a35b-instruct", label: "Qwen3 Coder 480B (coding)" },
+  { id: "minimaxai/minimax-m3", label: "Mini Maxx (coding)" },
   { id: "moonshotai/kimi-k2.6", label: "Kimi k2.6" },
   { id: "deepseek-ai/deepseek-v4-flash", label: "Deepseek v4 Flash" },
 ] as const;
