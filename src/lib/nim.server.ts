@@ -4,14 +4,14 @@
 export const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 export const NIM_MODELS = [
-  { id: "meta/llama-3.3-70b-instruct", label: "Llama 3.3 70B (general)" },
+  { id: "deepseek-ai/deepseek-v4-pro", label: "Deepseek v4 pro" },
   {
     id: "nvidia/llama-3.1-nemotron-70b-instruct",
     label: "Nemotron 70B (instruct-tuned)",
   },
   { id: "qwen/qwen3-coder-480b-a35b-instruct", label: "Qwen3 Coder 480B (coding)" },
-  { id: "mistralai/mixtral-8x22b-instruct-v0.1", label: "Mixtral 8x22B" },
-  { id: "deepseek-ai/deepseek-r1", label: "DeepSeek R1 (reasoning)" },
+  { id: "moonshotai/kimi-k2.6", label: "Kimi k2.6" },
+  { id: "deepseek-ai/deepseek-v4-flash", label: "DeepSeek R1 Deepseek v4 Flash" },
 ] as const;
 
 export const DEFAULT_NIM_MODEL = "meta/llama-3.3-70b-instruct";
