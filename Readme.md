@@ -65,13 +65,13 @@ Build, edit, preview, and deploy projects directly in your browser.»**
 
 # 📦 Installation
 
-``git clone https://github.com/bhuveshjoshiin-bit/nim-synth-studio.git
+```git clone https://github.com/bhuveshjoshiin-bit/nim-synth-studio.git```
 
-cd nim-synth-studio
+```cd nim-synth-studio```
 
-npm install
+```npm install```
 
-npm run dev``
+```npm run dev```
 
 
 
@@ -79,11 +79,11 @@ npm run dev``
 
 Create a ".env" file:
 
-``NIM_API_KEY=your_nvidia_nim_key
+```NIM_API_KEY=your_nvidia_nim_key```
 
-MODAL_API_KEY=your_modal_key
+```MODAL_API_KEY=your_modal_key```
 
-INNGEST_API_KEY=your_inngest_key``
+```INNGEST_API_KEY=your_inngest_key```
 
 
 
