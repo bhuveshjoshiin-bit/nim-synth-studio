@@ -187,7 +187,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     while (step < MAX_STEPS) {
       step++;
       const response = await callNim({
-        model: data.model,
+        model: model,
         messages,
         tools: TOOLS,
       });
@@ -201,7 +201,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
         role: "assistant",
         content: msg.content ?? "",
         tool_calls: (msg.tool_calls ?? null) as unknown as never,
-        model: data.model,
+        model: model,
       });
       messages.push({
         role: "assistant",
