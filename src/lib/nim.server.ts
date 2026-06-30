@@ -11,10 +11,10 @@ export const NIM_MODELS = [
   },
   { id: "qwen/qwen3-coder-480b-a35b-instruct", label: "Qwen3 Coder 480B (coding)" },
   { id: "moonshotai/kimi-k2.6", label: "Kimi k2.6" },
-  { id: "deepseek-ai/deepseek-v4-flash", label: "DeepSeek R1 Deepseek v4 Flash" },
+  { id: "deepseek-ai/deepseek-v4-flash", label: "Deepseek v4 Flash" },
 ] as const;
 
-export const DEFAULT_NIM_MODEL = "meta/llama-3.3-70b-instruct";
+export const DEFAULT_NIM_MODEL = "deepseek-ai/deepseek-v4-pro";
 
 export type NimRole = "system" | "user" | "assistant" | "tool";
 
