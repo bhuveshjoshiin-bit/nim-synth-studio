@@ -178,8 +178,20 @@ function Dashboard() {
                 rows={3}
                 className="w-full bg-transparent resize-none px-3 py-2 text-base outline-none placeholder:text-muted-foreground"
               />
-              <div className="flex items-center justify-between px-2 pt-1">
-                <span className="text-xs text-muted-foreground">Powered by NVIDIA NIM</span>
+              <div className="flex items-center justify-between px-2 pt-1 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-muted-foreground shrink-0">NVIDIA NIM</span>
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="text-xs bg-input border rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-ring max-w-[220px] truncate"
+                    title="Model"
+                  >
+                    {(models.length ? models : [{ id: model || "default", label: "Default" }]).map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   type="submit"
                   disabled={generating || !prompt.trim()}
