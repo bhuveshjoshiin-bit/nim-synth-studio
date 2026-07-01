@@ -24,6 +24,7 @@ function Dashboard() {
   const genPRD = useServerFn(generatePRD);
   const createProj = useServerFn(createProjectFromPRD);
   const buildPhase = useServerFn(implementPhase);
+  const fetchModels = useServerFn(listNimModels);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +36,17 @@ function Dashboard() {
   const [feedback, setFeedback] = useState("");
   const [showRefine, setShowRefine] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [model, setModel] = useState<string>("");
+  const [models, setModels] = useState<{ id: string; label: string }[]>([]);
+
+  useEffect(() => {
+    fetchModels({ data: {} })
+      .then((r) => {
+        setModels(r.models.map((m) => ({ id: m.id, label: m.label })));
+        setModel(r.default);
+      })
+      .catch(() => {});
+  }, [fetchModels]);
 
   async function refresh() {
     const { data, error } = await supabase
