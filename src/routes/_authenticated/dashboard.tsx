@@ -67,7 +67,7 @@ function Dashboard() {
     if (!prompt.trim()) return;
     setGenerating(true);
     try {
-      const { prd } = await genPRD({ data: { prompt: prompt.trim() } });
+      const { prd } = await genPRD({ data: { prompt: prompt.trim(), model } });
       setPrd(prd);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to generate PRD");
@@ -82,7 +82,7 @@ function Dashboard() {
     setRefining(true);
     try {
       const { prd: next } = await genPRD({
-        data: { prompt: prompt.trim(), feedback: feedback.trim(), previous: prd },
+        data: { prompt: prompt.trim(), feedback: feedback.trim(), previous: prd, model },
       });
       setPrd(next);
       setFeedback("");
@@ -100,9 +100,12 @@ function Dashboard() {
     setBuilding(true);
     try {
       const { projectId } = await createProj({ data: { prompt: prompt.trim(), prd } });
-      toast.message("Building Phase 1…", { description: "The AI is writing your first files." });
-      await buildPhase({ data: { projectId, phaseIndex: 0 } });
-      toast.success("Phase 1 ready");
+      toast.success("Project created — opening IDE");
+      // Kick off Phase 1 in the background so the user isn't stuck waiting.
+      // Progress streams live into the project's chat panel.
+      buildPhase({ data: { projectId, phaseIndex: 0, model } }).catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Phase 1 build failed");
+      });
       navigate({ to: "/ide/$projectId", params: { projectId } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Build failed");
