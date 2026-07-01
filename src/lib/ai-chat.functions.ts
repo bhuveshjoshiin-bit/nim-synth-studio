@@ -180,7 +180,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
       { role: "user", content: data.message },
     ];
 
-    const MAX_STEPS = 6;
+    const MAX_STEPS = 50;
     let step = 0;
     let finalAssistant = "";
 
