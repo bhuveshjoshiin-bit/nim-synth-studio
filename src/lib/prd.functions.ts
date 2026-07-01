@@ -126,6 +126,7 @@ export const createProjectFromPRD = createServerFn({ method: "POST" })
 const PhaseInput = z.object({
   projectId: z.string().uuid(),
   phaseIndex: z.number().int().min(0),
+  model: z.string().optional(),
 });
 
 function languageFromPath(path: string): string | null {
