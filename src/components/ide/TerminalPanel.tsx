@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { runSandboxCommand } from "@/lib/sandbox.functions";
 import { Terminal as TerminalIcon, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 type Log = {
   id: string;
