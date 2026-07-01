@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Terminal, Folder, LogOut, Loader2, Trash2, Sparkles, ArrowRight, RotateCcw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { generatePRD, createProjectFromPRD, implementPhase, type PRD } from "@/lib/prd.functions";
+import { listNimModels } from "@/lib/ai-chat.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Your projects — NimIDE" }] }),
