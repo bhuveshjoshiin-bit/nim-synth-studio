@@ -52,14 +52,16 @@ export const generatePRD = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => GenInput.parse(d))
   .handler(async ({ data }) => {
-    const { callNim, DEFAULT_NIM_MODEL } = await import("./nim.server");
+    const { callNim, DEFAULT_NIM_MODEL, NIM_MODELS } = await import("./nim.server");
+    const model =
+      data.model && NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
 
     const userMsg = data.feedback
       ? `Original idea:\n${data.prompt}\n\nPrevious PRD:\n${JSON.stringify(data.previous ?? {}, null, 2)}\n\nUser feedback — revise accordingly:\n${data.feedback}`
       : `Idea: ${data.prompt}`;
 
     const res = await callNim({
-      model: DEFAULT_NIM_MODEL,
+      model,
       messages: [
         { role: "system", content: PRD_SYSTEM },
         { role: "user", content: userMsg },
