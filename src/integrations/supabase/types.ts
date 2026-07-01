@@ -172,6 +172,7 @@ export type Database = {
           name: string
           owner_id: string
           prd: Json | null
+          sandbox_id: string | null
           template: string | null
           updated_at: string
           vercel_project_id: string | null
@@ -186,6 +187,7 @@ export type Database = {
           name: string
           owner_id: string
           prd?: Json | null
+          sandbox_id?: string | null
           template?: string | null
           updated_at?: string
           vercel_project_id?: string | null
@@ -200,6 +202,7 @@ export type Database = {
           name?: string
           owner_id?: string
           prd?: Json | null
+          sandbox_id?: string | null
           template?: string | null
           updated_at?: string
           vercel_project_id?: string | null
