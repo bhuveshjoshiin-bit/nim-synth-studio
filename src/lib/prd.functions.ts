@@ -21,6 +21,7 @@ const GenInput = z.object({
   prompt: z.string().min(4).max(4000),
   feedback: z.string().max(4000).optional(),
   previous: z.any().optional(),
+  model: z.string().optional(),
 });
 
 const PRD_SYSTEM = `You are a senior product architect. Given a one-line user idea, produce a concise PRD (Product Requirements Document) for a small web app the user will build INSIDE a browser IDE.
