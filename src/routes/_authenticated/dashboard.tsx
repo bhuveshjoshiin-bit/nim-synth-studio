@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Terminal, Folder, LogOut, Loader2, Trash2, Sparkles, ArrowRight, RotateCcw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { generatePRD, createProjectFromPRD, implementPhase, type PRD } from "@/lib/prd.functions";
+import { listNimModels } from "@/lib/ai-chat.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Your projects — NimIDE" }] }),
@@ -23,6 +24,7 @@ function Dashboard() {
   const genPRD = useServerFn(generatePRD);
   const createProj = useServerFn(createProjectFromPRD);
   const buildPhase = useServerFn(implementPhase);
+  const fetchModels = useServerFn(listNimModels);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,17 @@ function Dashboard() {
   const [feedback, setFeedback] = useState("");
   const [showRefine, setShowRefine] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [model, setModel] = useState<string>("");
+  const [models, setModels] = useState<{ id: string; label: string }[]>([]);
+
+  useEffect(() => {
+    fetchModels({ data: {} })
+      .then((r) => {
+        setModels(r.models.map((m) => ({ id: m.id, label: m.label })));
+        setModel(r.default);
+      })
+      .catch(() => {});
+  }, [fetchModels]);
 
   async function refresh() {
     const { data, error } = await supabase
@@ -54,7 +67,7 @@ function Dashboard() {
     if (!prompt.trim()) return;
     setGenerating(true);
     try {
-      const { prd } = await genPRD({ data: { prompt: prompt.trim() } });
+      const { prd } = await genPRD({ data: { prompt: prompt.trim(), model } });
       setPrd(prd);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to generate PRD");
@@ -69,7 +82,7 @@ function Dashboard() {
     setRefining(true);
     try {
       const { prd: next } = await genPRD({
-        data: { prompt: prompt.trim(), feedback: feedback.trim(), previous: prd },
+        data: { prompt: prompt.trim(), feedback: feedback.trim(), previous: prd, model },
       });
       setPrd(next);
       setFeedback("");
@@ -87,9 +100,12 @@ function Dashboard() {
     setBuilding(true);
     try {
       const { projectId } = await createProj({ data: { prompt: prompt.trim(), prd } });
-      toast.message("Building Phase 1…", { description: "The AI is writing your first files." });
-      await buildPhase({ data: { projectId, phaseIndex: 0 } });
-      toast.success("Phase 1 ready");
+      toast.success("Project created — opening IDE");
+      // Kick off Phase 1 in the background so the user isn't stuck waiting.
+      // Progress streams live into the project's chat panel.
+      buildPhase({ data: { projectId, phaseIndex: 0, model } }).catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Phase 1 build failed");
+      });
       navigate({ to: "/ide/$projectId", params: { projectId } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Build failed");
@@ -162,8 +178,20 @@ function Dashboard() {
                 rows={3}
                 className="w-full bg-transparent resize-none px-3 py-2 text-base outline-none placeholder:text-muted-foreground"
               />
-              <div className="flex items-center justify-between px-2 pt-1">
-                <span className="text-xs text-muted-foreground">Powered by NVIDIA NIM</span>
+              <div className="flex items-center justify-between px-2 pt-1 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-muted-foreground shrink-0">NVIDIA NIM</span>
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="text-xs bg-input border rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-ring max-w-[220px] truncate"
+                    title="Model"
+                  >
+                    {(models.length ? models : [{ id: model || "default", label: "Default" }]).map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   type="submit"
                   disabled={generating || !prompt.trim()}

@@ -21,6 +21,7 @@ const GenInput = z.object({
   prompt: z.string().min(4).max(4000),
   feedback: z.string().max(4000).optional(),
   previous: z.any().optional(),
+  model: z.string().optional(),
 });
 
 const PRD_SYSTEM = `You are a senior product architect. Given a one-line user idea, produce a concise PRD (Product Requirements Document) for a small web app the user will build INSIDE a browser IDE.
@@ -51,14 +52,16 @@ export const generatePRD = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => GenInput.parse(d))
   .handler(async ({ data }) => {
-    const { callNim, DEFAULT_NIM_MODEL } = await import("./nim.server");
+    const { callNim, DEFAULT_NIM_MODEL, NIM_MODELS } = await import("./nim.server");
+    const model =
+      data.model && NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
 
     const userMsg = data.feedback
       ? `Original idea:\n${data.prompt}\n\nPrevious PRD:\n${JSON.stringify(data.previous ?? {}, null, 2)}\n\nUser feedback — revise accordingly:\n${data.feedback}`
       : `Idea: ${data.prompt}`;
 
     const res = await callNim({
-      model: DEFAULT_NIM_MODEL,
+      model,
       messages: [
         { role: "system", content: PRD_SYSTEM },
         { role: "user", content: userMsg },
@@ -123,6 +126,7 @@ export const createProjectFromPRD = createServerFn({ method: "POST" })
 const PhaseInput = z.object({
   projectId: z.string().uuid(),
   phaseIndex: z.number().int().min(0),
+  model: z.string().optional(),
 });
 
 function languageFromPath(path: string): string | null {
@@ -156,7 +160,9 @@ export const implementPhase = createServerFn({ method: "POST" })
       .eq("project_id", data.projectId);
     const existingList = (existingFiles ?? []).map((f) => f.path).join("\n") || "(empty)";
 
-    const { callNim, DEFAULT_NIM_MODEL } = await import("./nim.server");
+    const { callNim, DEFAULT_NIM_MODEL, NIM_MODELS } = await import("./nim.server");
+    const model =
+      data.model && NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
     type NimMsg = import("./nim.server").NimMessage;
 
     const TOOLS = [
@@ -187,12 +193,29 @@ Use create_file / edit_file to write COMPLETE, WORKING code for this phase only.
       { role: "user", content: `Build phase ${data.phaseIndex + 1} now.` },
     ];
 
+    // Announce phase start in the project chat (streams live to the IDE panel).
+    await supabase.from("chat_messages").insert({
+      project_id: data.projectId,
+      role: "assistant",
+      content: `🚧 Starting **${phase.name}** — ${phase.goal}`,
+      model,
+    });
+
     let summary = "";
-    for (let step = 0; step < 8; step++) {
-      const response = await callNim({ model: DEFAULT_NIM_MODEL, messages, tools: TOOLS, max_tokens: 4000 });
+    for (let step = 0; step < 40; step++) {
+      const response = await callNim({ model, messages, tools: TOOLS, max_tokens: 4000 });
       const msg = response.choices[0]?.message;
       if (!msg) break;
       messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
+
+      // Persist assistant turn so the IDE chat updates live during the build
+      await supabase.from("chat_messages").insert({
+        project_id: data.projectId,
+        role: "assistant",
+        content: msg.content ?? "",
+        tool_calls: (msg.tool_calls ?? null) as unknown as never,
+        model,
+      });
 
       if (!msg.tool_calls?.length) {
         summary = msg.content ?? "";
@@ -218,6 +241,12 @@ Use create_file / edit_file to write COMPLETE, WORKING code for this phase only.
           result = `Error: ${err instanceof Error ? err.message : String(err)}`;
         }
         messages.push({ role: "tool", content: result, tool_call_id: call.id });
+        await supabase.from("chat_messages").insert({
+          project_id: data.projectId,
+          role: "tool",
+          content: result,
+          tool_call_id: call.id,
+        });
       }
     }
 
@@ -230,7 +259,7 @@ Use create_file / edit_file to write COMPLETE, WORKING code for this phase only.
       project_id: data.projectId,
       role: "assistant",
       content: `✅ Built **${phase.name}**\n\n${summary}`,
-      model: DEFAULT_NIM_MODEL,
+      model,
     });
 
     return { ok: true, summary, phase: phase.name };

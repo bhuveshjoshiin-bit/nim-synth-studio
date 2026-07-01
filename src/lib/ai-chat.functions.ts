@@ -180,7 +180,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
       { role: "user", content: data.message },
     ];
 
-    const MAX_STEPS = 6;
+    const MAX_STEPS = 50;
     let step = 0;
     let finalAssistant = "";
 
@@ -289,18 +289,35 @@ export const sendChatMessage = createServerFn({ method: "POST" })
             }
             case "run_command": {
               const cmd = String(args.command ?? "");
-              const { data: log } = await supabase
+              const { data: logRow } = await supabase
                 .from("terminal_logs")
-                .insert({
-                  project_id: data.projectId,
-                  command: cmd,
-                  status: "success",
-                  output: "[sandbox not wired — Phase 2 will run real commands via E2B]",
-                  exit_code: 0,
-                })
+                .insert({ project_id: data.projectId, command: cmd, status: "running", output: "" })
                 .select("id")
                 .single();
-              result = `Command queued (id ${log?.id ?? ""}). Real execution lands when the E2B sandbox is connected.`;
+              try {
+                const { data: proj } = await supabase
+                  .from("projects").select("sandbox_id").eq("id", data.projectId).maybeSingle();
+                const { getOrCreateSandbox, runCommand, syncFiles } = await import("./e2b.server");
+                const sandbox = await getOrCreateSandbox(proj?.sandbox_id ?? null);
+                if (sandbox.sandboxId !== proj?.sandbox_id) {
+                  await supabase.from("projects").update({ sandbox_id: sandbox.sandboxId }).eq("id", data.projectId);
+                }
+                const { data: files } = await supabase
+                  .from("files").select("path,content").eq("project_id", data.projectId);
+                await syncFiles(sandbox, files ?? []);
+                const r = await runCommand(sandbox, cmd);
+                const output = (r.stdout + (r.stderr ? "\n" + r.stderr : "")).slice(0, 20000);
+                await supabase.from("terminal_logs").update({
+                  status: r.exitCode === 0 ? "success" : "error",
+                  output,
+                  exit_code: r.exitCode,
+                }).eq("id", logRow!.id);
+                result = `exit ${r.exitCode}\n${output}`.slice(0, 8000);
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                await supabase.from("terminal_logs").update({ status: "error", output: msg, exit_code: 1 }).eq("id", logRow!.id);
+                result = `Error running command: ${msg}`;
+              }
               break;
             }
             default:
