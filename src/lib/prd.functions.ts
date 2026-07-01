@@ -193,12 +193,29 @@ Use create_file / edit_file to write COMPLETE, WORKING code for this phase only.
       { role: "user", content: `Build phase ${data.phaseIndex + 1} now.` },
     ];
 
+    // Announce phase start in the project chat (streams live to the IDE panel).
+    await supabase.from("chat_messages").insert({
+      project_id: data.projectId,
+      role: "assistant",
+      content: `🚧 Starting **${phase.name}** — ${phase.goal}`,
+      model,
+    });
+
     let summary = "";
-    for (let step = 0; step < 8; step++) {
-      const response = await callNim({ model: DEFAULT_NIM_MODEL, messages, tools: TOOLS, max_tokens: 4000 });
+    for (let step = 0; step < 40; step++) {
+      const response = await callNim({ model, messages, tools: TOOLS, max_tokens: 4000 });
       const msg = response.choices[0]?.message;
       if (!msg) break;
       messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
+
+      // Persist assistant turn so the IDE chat updates live during the build
+      await supabase.from("chat_messages").insert({
+        project_id: data.projectId,
+        role: "assistant",
+        content: msg.content ?? "",
+        tool_calls: (msg.tool_calls ?? null) as unknown as never,
+        model,
+      });
 
       if (!msg.tool_calls?.length) {
         summary = msg.content ?? "";
@@ -224,6 +241,12 @@ Use create_file / edit_file to write COMPLETE, WORKING code for this phase only.
           result = `Error: ${err instanceof Error ? err.message : String(err)}`;
         }
         messages.push({ role: "tool", content: result, tool_call_id: call.id });
+        await supabase.from("chat_messages").insert({
+          project_id: data.projectId,
+          role: "tool",
+          content: result,
+          tool_call_id: call.id,
+        });
       }
     }
 
@@ -236,7 +259,7 @@ Use create_file / edit_file to write COMPLETE, WORKING code for this phase only.
       project_id: data.projectId,
       role: "assistant",
       content: `✅ Built **${phase.name}**\n\n${summary}`,
-      model: DEFAULT_NIM_MODEL,
+      model,
     });
 
     return { ok: true, summary, phase: phase.name };
