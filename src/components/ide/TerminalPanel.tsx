@@ -62,16 +62,13 @@ export function TerminalPanel({ projectId }: { projectId: string }) {
     if (!command) return;
     setRunning(true);
     setCmd("");
-    // Phase 1: simulated — Phase 2 will dispatch to E2B via Inngest.
-    await supabase.from("terminal_logs").insert({
-      project_id: projectId,
-      command,
-      status: "success",
-      exit_code: 0,
-      output:
-        "[Sandbox not yet wired — Phase 2 connects E2B for real command execution. The AI can still call run_command and the call will appear here.]",
-    });
-    setRunning(false);
+    try {
+      await runFn({ data: { projectId, command } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Command failed");
+    } finally {
+      setRunning(false);
+    }
   }
 
   async function clearAll() {
