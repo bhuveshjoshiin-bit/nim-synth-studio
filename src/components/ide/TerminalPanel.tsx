@@ -19,6 +19,7 @@ export function TerminalPanel({ projectId }: { projectId: string }) {
   const [cmd, setCmd] = useState("");
   const [running, setRunning] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const runFn = useServerFn(runSandboxCommand);
 
   async function refresh() {
     const { data } = await supabase
