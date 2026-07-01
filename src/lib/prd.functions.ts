@@ -160,7 +160,9 @@ export const implementPhase = createServerFn({ method: "POST" })
       .eq("project_id", data.projectId);
     const existingList = (existingFiles ?? []).map((f) => f.path).join("\n") || "(empty)";
 
-    const { callNim, DEFAULT_NIM_MODEL } = await import("./nim.server");
+    const { callNim, DEFAULT_NIM_MODEL, NIM_MODELS } = await import("./nim.server");
+    const model =
+      data.model && NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
     type NimMsg = import("./nim.server").NimMessage;
 
     const TOOLS = [
