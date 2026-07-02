@@ -8,14 +8,13 @@ export const inngest = new Inngest({ id: "nim-ide" });
  * so the UI doesn't have to wait for a long AI loop to finish.
  */
 export const buildPhaseFn = inngest.createFunction(
-  { id: "build-phase", retries: 1 },
-  { event: "project/phase.build" },
-  async ({ event }) => {
-    const { projectId, phaseIndex, model } = event.data as {
-      projectId: string;
-      phaseIndex: number;
-      model?: string;
-    };
+  {
+    id: "build-phase",
+    retries: 1,
+    triggers: [{ event: "project/phase.build" }],
+  },
+  async ({ event }: { event: { data: { projectId: string; phaseIndex: number; model?: string } } }) => {
+    const { projectId, phaseIndex, model } = event.data;
     const { runImplementPhase } = await import("./phase-runner.server");
     return await runImplementPhase({ projectId, phaseIndex, model });
   },
