@@ -10,7 +10,6 @@ import {
 import { FileTree, type FileNode } from "@/components/ide/FileTree";
 import { EditorPane } from "@/components/ide/EditorPane";
 import { TerminalPanel } from "@/components/ide/TerminalPanel";
-import { TerminalPanel } from "@/components/ide/TerminalPanel";
 import { PreviewPanel } from "@/components/ide/PreviewPanel";
 import { AIChatPanel } from "@/components/ide/AIChatPanel";
 import { TopBar } from "@/components/ide/TopBar";

@@ -179,5 +179,5 @@ export const implementPhase = createServerFn({ method: "POST" })
       phaseIndex: data.phaseIndex,
       model: data.model,
     });
-    return { ok: true, dispatched: "inline" as const, ...res };
+    return { dispatched: "inline" as const, ...res };
   });
