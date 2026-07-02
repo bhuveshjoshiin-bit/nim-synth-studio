@@ -235,7 +235,7 @@ function IdePage() {
               </Panel>
               <PanelResizeHandle className="h-px bg-border hover:bg-primary/40 transition-colors" />
               <Panel defaultSize={30} minSize={10}>
-                <TerminalPanel projectId={projectId} />
+                <BottomTabs projectId={projectId} />
               </Panel>
             </PanelGroup>
           </Panel>
@@ -246,6 +246,31 @@ function IdePage() {
             <AIChatPanel projectId={projectId} />
           </Panel>
         </PanelGroup>
+      </div>
+    </div>
+  );
+}
+
+function BottomTabs({ projectId }: { projectId: string }) {
+  const [tab, setTab] = useState<"terminal" | "preview">("terminal");
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-1 border-b bg-panel px-2 py-1">
+        <button
+          onClick={() => setTab("terminal")}
+          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${tab === "terminal" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <TerminalIcon className="size-3" /> Terminal
+        </button>
+        <button
+          onClick={() => setTab("preview")}
+          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${tab === "preview" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Eye className="size-3" /> Preview
+        </button>
+      </div>
+      <div className="flex-1 min-h-0">
+        {tab === "terminal" ? <TerminalPanel projectId={projectId} /> : <PreviewPanel projectId={projectId} />}
       </div>
     </div>
   );
