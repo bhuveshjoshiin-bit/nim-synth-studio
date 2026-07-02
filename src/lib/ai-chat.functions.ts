@@ -34,10 +34,9 @@ TOOLS:
 
 RULES:
 1. When editing existing files, ALWAYS try edit_section or append_file first. Overwrite_file wastes context.
-2. Break large files (>150 lines) into smaller modules across multiple create_file calls.
-3. Do not paste code into chat — always use tools.
-4. Forward slashes in paths, no leading slash.
-5. After changes, give a short (1–3 sentence) summary.`;
+2. Do not paste code into chat — always use tools.
+3. Forward slashes in paths, no leading slash.
+4. After changes, give a short (1–3 sentence) summary.`;
 
 const TOOLS = [
   { type: "function" as const, function: { name: "read_file", description: "Read a file's contents.", parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
