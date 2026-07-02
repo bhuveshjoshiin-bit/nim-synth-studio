@@ -10,8 +10,11 @@ import {
 import { FileTree, type FileNode } from "@/components/ide/FileTree";
 import { EditorPane } from "@/components/ide/EditorPane";
 import { TerminalPanel } from "@/components/ide/TerminalPanel";
+import { TerminalPanel } from "@/components/ide/TerminalPanel";
+import { PreviewPanel } from "@/components/ide/PreviewPanel";
 import { AIChatPanel } from "@/components/ide/AIChatPanel";
 import { TopBar } from "@/components/ide/TopBar";
+import { Terminal as TerminalIcon, Eye } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/ide/$projectId")({
   head: () => ({ meta: [{ title: "Workspace — NimIDE" }] }),
