@@ -11,10 +11,10 @@ export const NIM_MODELS = [
   },
   { id: "minimaxai/minimax-m3", label: "Mini Maxx (coding)" },
   { id: "deepseek-ai/deepseek-v4-pro", label: "Deepseek v4 pro" },
-  { id: "deepseek-ai/deepseek-v4-flash", label: "Deepseek v4 Flash" },
+  { id: "openai/gpt-oss-120b", label: "Gpt Oss" },
 ] as const;
 
-export const DEFAULT_NIM_MODEL = "deepseek-ai/deepseek-v4-pro";
+export const DEFAULT_NIM_MODEL = "moonshotai/kimi-k2.6";
 
 export type NimRole = "system" | "user" | "assistant" | "tool";
 
