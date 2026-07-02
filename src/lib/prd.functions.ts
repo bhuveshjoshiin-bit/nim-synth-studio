@@ -143,124 +143,41 @@ export const implementPhase = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => PhaseInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Verify ownership before dispatching background work.
     const { data: project, error } = await supabase
       .from("projects")
-      .select("id, name, prd, initial_prompt")
+      .select("id")
       .eq("id", data.projectId)
       .eq("owner_id", userId)
       .maybeSingle();
     if (error || !project) throw new Error("Project not found");
-    const prd = project.prd as unknown as PRD | null;
-    const phase = prd?.phases?.[data.phaseIndex];
-    if (!phase) throw new Error("Phase not found");
 
-    const { data: existingFiles } = await supabase
-      .from("files")
-      .select("path")
-      .eq("project_id", data.projectId);
-    const existingList = (existingFiles ?? []).map((f) => f.path).join("\n") || "(empty)";
-
-    const { callNim, DEFAULT_NIM_MODEL, NIM_MODELS } = await import("./nim.server");
-    const model =
-      data.model && NIM_MODELS.some((m) => m.id === data.model) ? data.model : DEFAULT_NIM_MODEL;
-    type NimMsg = import("./nim.server").NimMessage;
-
-    const TOOLS = [
-      { type: "function" as const, function: { name: "create_file", description: "Create or overwrite a file with given contents.", parameters: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } } },
-      { type: "function" as const, function: { name: "edit_file", description: "Replace contents of an existing file.", parameters: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } } },
-    ];
-
-    const sys = `You are implementing one phase of a project inside a browser IDE.
-Project: ${project.name}
-Original idea: ${project.initial_prompt}
-PRD summary: ${prd?.summary}
-Stack: ${prd?.stack?.join(", ")}
-
-You are building PHASE: ${phase.name}
-Goal: ${phase.goal}
-Deliverables:
-${phase.deliverables.map((d) => `- ${d}`).join("\n")}
-Suggested files:
-${phase.files.map((f) => `- ${f}`).join("\n")}
-
-Existing project files:
-${existingList}
-
-Use create_file / edit_file to write COMPLETE, WORKING code for this phase only. Do not write code in chat — only via tools. After tool calls, give a 1-paragraph summary of what was built.`;
-
-    const messages: NimMsg[] = [
-      { role: "system", content: sys },
-      { role: "user", content: `Build phase ${data.phaseIndex + 1} now.` },
-    ];
-
-    // Announce phase start in the project chat (streams live to the IDE panel).
-    await supabase.from("chat_messages").insert({
-      project_id: data.projectId,
-      role: "assistant",
-      content: `🚧 Starting **${phase.name}** — ${phase.goal}`,
-      model,
-    });
-
-    let summary = "";
-    for (let step = 0; step < 40; step++) {
-      const response = await callNim({ model, messages, tools: TOOLS, max_tokens: 4000 });
-      const msg = response.choices[0]?.message;
-      if (!msg) break;
-      messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
-
-      // Persist assistant turn so the IDE chat updates live during the build
-      await supabase.from("chat_messages").insert({
-        project_id: data.projectId,
-        role: "assistant",
-        content: msg.content ?? "",
-        tool_calls: (msg.tool_calls ?? null) as unknown as never,
-        model,
+    // Try Inngest first (durable, retried, off request path).
+    try {
+      const { dispatchInngestEvent } = await import("./inngest.server");
+      const r = await dispatchInngestEvent("project/phase.build", {
+        projectId: data.projectId,
+        phaseIndex: data.phaseIndex,
+        model: data.model,
       });
-
-      if (!msg.tool_calls?.length) {
-        summary = msg.content ?? "";
-        break;
-      }
-      for (const call of msg.tool_calls) {
-        let result = "ok";
-        try {
-          const args = JSON.parse(call.function.arguments || "{}");
-          const path = String(args.path ?? "").replace(/^\/+/, "");
-          const content = String(args.content ?? "");
-          if (!path) throw new Error("missing path");
-          const { data: existing } = await supabase
-            .from("files").select("id").eq("project_id", data.projectId).eq("path", path).maybeSingle();
-          if (existing) {
-            await supabase.from("files").update({ content }).eq("id", existing.id);
-            result = `Updated ${path}`;
-          } else {
-            await supabase.from("files").insert({ project_id: data.projectId, path, content, language: languageFromPath(path) });
-            result = `Created ${path}`;
-          }
-        } catch (err) {
-          result = `Error: ${err instanceof Error ? err.message : String(err)}`;
-        }
-        messages.push({ role: "tool", content: result, tool_call_id: call.id });
+      if (r.dispatched) {
         await supabase.from("chat_messages").insert({
           project_id: data.projectId,
-          role: "tool",
-          content: result,
-          tool_call_id: call.id,
+          role: "assistant",
+          content: `⚡ Phase ${data.phaseIndex + 1} queued via Inngest — building in the background.`,
         });
+        return { ok: true, dispatched: "inngest" as const };
       }
+    } catch (err) {
+      console.warn("Inngest dispatch failed, falling back inline:", err);
     }
 
-    await supabase
-      .from("projects")
-      .update({ current_phase: data.phaseIndex + 1 })
-      .eq("id", data.projectId);
-
-    await supabase.from("chat_messages").insert({
-      project_id: data.projectId,
-      role: "assistant",
-      content: `✅ Built **${phase.name}**\n\n${summary}`,
-      model,
+    // Inline fallback (no Inngest connector linked).
+    const { runImplementPhase } = await import("./phase-runner.server");
+    const res = await runImplementPhase({
+      projectId: data.projectId,
+      phaseIndex: data.phaseIndex,
+      model: data.model,
     });
-
-    return { ok: true, summary, phase: phase.name };
+    return { dispatched: "inline" as const, ...res };
   });
