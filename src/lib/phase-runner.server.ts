@@ -82,10 +82,17 @@ HARD RULES:
   });
 
   let summary = "";
+  const recent: string[] = [];
   for (let step = 0; step < 40; step++) {
     const response = await callNim({ model, messages, tools: TOOLS, max_tokens: 4000 });
     const msg = response.choices[0]?.message;
     if (!msg) break;
+    const contentStr = (msg.content ?? "").trim();
+    const norm = contentStr.slice(0, 400);
+    const reps = recent.filter((c) => c === norm).length;
+    recent.push(norm);
+    if (recent.length > 5) recent.shift();
+
     messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
 
     await supabaseAdmin.from("chat_messages").insert({
@@ -97,7 +104,11 @@ HARD RULES:
     });
 
     if (!msg.tool_calls?.length) {
-      summary = msg.content ?? "";
+      summary = contentStr;
+      break;
+    }
+    if (reps >= 2 && contentStr.length > 200) {
+      summary = contentStr + "\n\n[stopped: repetition loop]";
       break;
     }
     for (const call of msg.tool_calls) {
