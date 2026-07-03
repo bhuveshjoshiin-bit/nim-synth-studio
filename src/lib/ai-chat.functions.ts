@@ -101,6 +101,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     const MAX_STEPS = 50;
     let step = 0;
     let finalAssistant = "";
+    const recentContents: string[] = [];
 
     while (step < MAX_STEPS) {
       step++;
@@ -108,6 +109,13 @@ export const sendChatMessage = createServerFn({ method: "POST" })
       const choice = response.choices[0];
       if (!choice) throw new Error("Empty response from NVIDIA NIM");
       const msg = choice.message;
+      const contentStr = (msg.content ?? "").trim();
+
+      // Anti-loop: if the model keeps emitting the same content with no tool calls, bail.
+      const normalized = contentStr.slice(0, 400);
+      const repeats = recentContents.filter((c) => c === normalized).length;
+      recentContents.push(normalized);
+      if (recentContents.length > 5) recentContents.shift();
 
       await supabase.from("chat_messages").insert({
         project_id: data.projectId, role: "assistant",
@@ -118,9 +126,16 @@ export const sendChatMessage = createServerFn({ method: "POST" })
       messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
 
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        finalAssistant = msg.content ?? "";
+        finalAssistant = contentStr;
         break;
       }
+
+      if (repeats >= 2 && contentStr.length > 200) {
+        finalAssistant = contentStr + "\n\n[stopped: detected repetition loop]";
+        break;
+      }
+
+
 
       for (const call of msg.tool_calls) {
         let result = "";
