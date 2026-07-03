@@ -97,3 +97,70 @@ export const getSandboxPreviewUrl = createServerFn({ method: "POST" })
     await syncFiles(sandbox, files ?? []);
     return { url: getPreviewUrl(sandbox, data.port) };
   });
+
+// Phase 4: auto-detect project type and start a dev server on port 3000 in the
+// background. Returns the preview URL immediately; the server keeps running
+// inside the sandbox until it times out.
+const AutoStartInput = z.object({ projectId: z.string().uuid() });
+
+export const autoStartDevServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => AutoStartInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const project = await ensureProject(supabase, userId, data.projectId);
+    const { getOrCreateSandbox, getPreviewUrl, syncFiles, runCommand } = await import("./e2b.server");
+    const sandbox = await getOrCreateSandbox(project.sandbox_id);
+    if (sandbox.sandboxId !== project.sandbox_id) {
+      await supabase.from("projects").update({ sandbox_id: sandbox.sandboxId }).eq("id", data.projectId);
+    }
+    const { data: files } = await supabase.from("files").select("path,content").eq("project_id", data.projectId);
+    const list = files ?? [];
+    await syncFiles(sandbox, list);
+
+    const paths = new Set(list.map((f) => f.path));
+    // Detect project kind
+    let startCmd: string;
+    if (paths.has("package.json")) {
+      const pkg = list.find((f) => f.path === "package.json");
+      const hasDev = pkg && /"dev"\s*:/.test(pkg.content);
+      const install = "([ -d node_modules ] || npm install --no-audit --no-fund --loglevel=error) >/tmp/install.log 2>&1";
+      const run = hasDev
+        ? "PORT=3000 nohup npm run dev -- --port 3000 --host 0.0.0.0 >/tmp/dev.log 2>&1 &"
+        : "PORT=3000 nohup npx --yes serve -l 3000 . >/tmp/dev.log 2>&1 &";
+      startCmd = `pkill -f 'node|vite|next|serve' 2>/dev/null; ${install}; ${run} echo started`;
+    } else if (paths.has("index.html")) {
+      startCmd = "pkill -f 'http.server|serve' 2>/dev/null; nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 & echo started";
+    } else {
+      startCmd = "pkill -f 'http.server' 2>/dev/null; nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 & echo started";
+    }
+
+    await runCommand(sandbox, startCmd);
+    const url = getPreviewUrl(sandbox, 3000);
+    await supabase.from("projects").update({ sandbox_id: sandbox.sandboxId }).eq("id", data.projectId);
+    return { url, sandboxId: sandbox.sandboxId };
+  });
+
+// Phase 5: shareable deploy link. E2B preview URLs are already publicly
+// reachable; we surface the port-3000 URL and persist it so the user can share.
+const DeployInput = z.object({ projectId: z.string().uuid() });
+
+export const deployProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => DeployInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const project = await ensureProject(supabase, userId, data.projectId);
+    const { getOrCreateSandbox, getPreviewUrl, syncFiles, runCommand } = await import("./e2b.server");
+    const sandbox = await getOrCreateSandbox(project.sandbox_id);
+    if (sandbox.sandboxId !== project.sandbox_id) {
+      await supabase.from("projects").update({ sandbox_id: sandbox.sandboxId }).eq("id", data.projectId);
+    }
+    const { data: files } = await supabase.from("files").select("path,content").eq("project_id", data.projectId);
+    await syncFiles(sandbox, files ?? []);
+    // Best-effort: ensure something is serving on 3000
+    await runCommand(sandbox, "pgrep -f ':3000' >/dev/null || (nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 &) ; echo ok");
+    const url = getPreviewUrl(sandbox, 3000);
+    return { url, sandboxId: sandbox.sandboxId };
+  });
+

@@ -52,7 +52,7 @@ Original idea: ${project.initial_prompt}
 PRD summary: ${prd?.summary}
 Stack: ${prd?.stack?.join(", ")}
 
-You are building PHASE: ${phase.name}
+PHASE: ${phase.name}
 Goal: ${phase.goal}
 Deliverables:
 ${phase.deliverables.map((d) => `- ${d}`).join("\n")}
@@ -62,11 +62,12 @@ ${phase.files.map((f) => `- ${f}`).join("\n")}
 Existing project files:
 ${existingList}
 
-Rules:
-- Prefer edit_section / append_file over overwrite_file to keep edits small.
-- Keep files under 150 lines each; split into modules if needed.
-- Use create_file for NEW files, edit_section for changes to existing ones.
-- After tool calls, give a 1-paragraph summary.`;
+HARD RULES:
+1. Keep every file under ~150 lines. Split large modules.
+2. Prefer edit_section / append_file over overwrite_file — full rewrites break generation.
+3. create_file for NEW files, edit_section for changes to existing ones.
+4. Any dev server MUST bind to port 3000 (\`--port 3000\` / \`PORT=3000\`).
+5. Never repeat the same paragraph or tool call. Give a single short summary and STOP.`;
 
   const messages: NimMsg[] = [
     { role: "system", content: sys },
@@ -81,10 +82,17 @@ Rules:
   });
 
   let summary = "";
+  const recent: string[] = [];
   for (let step = 0; step < 40; step++) {
     const response = await callNim({ model, messages, tools: TOOLS, max_tokens: 4000 });
     const msg = response.choices[0]?.message;
     if (!msg) break;
+    const contentStr = (msg.content ?? "").trim();
+    const norm = contentStr.slice(0, 400);
+    const reps = recent.filter((c) => c === norm).length;
+    recent.push(norm);
+    if (recent.length > 5) recent.shift();
+
     messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
 
     await supabaseAdmin.from("chat_messages").insert({
@@ -96,7 +104,11 @@ Rules:
     });
 
     if (!msg.tool_calls?.length) {
-      summary = msg.content ?? "";
+      summary = contentStr;
+      break;
+    }
+    if (reps >= 2 && contentStr.length > 200) {
+      summary = contentStr + "\n\n[stopped: repetition loop]";
       break;
     }
     for (const call of msg.tool_calls) {
