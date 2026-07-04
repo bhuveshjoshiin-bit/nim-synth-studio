@@ -195,6 +195,79 @@ function IdePage() {
       ? (dirty[activeId] ?? activeFile.content)
       : "";
 
+  // Preview / dev server state (lifted so TopBar Run button controls it)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewNonce, setPreviewNonce] = useState(0);
+  const [starting, setStarting] = useState(false);
+  const [bottomTab, setBottomTab] = useState<"terminal" | "logs">("terminal");
+  const startFn = useServerFn(autoStartDevServer);
+  const stopFn = useServerFn(stopDevServer);
+  const pushFn = useServerFn(pushProjectToGithub);
+  const deployFn = useServerFn(deployToVercel);
+
+  async function handleRun() {
+    setStarting(true);
+    try {
+      const { url, alreadyRunning } = await startFn({ data: { projectId } });
+      setPreviewUrl(url);
+      setPreviewOpen(true);
+      setBottomTab("logs");
+      setPreviewNonce((n) => n + 1);
+      toast.success(alreadyRunning ? "Dev server already running on :3000" : "Dev server started on :3000");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to start");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function handleStop() {
+    try {
+      await stopFn({ data: { projectId } });
+      setPreviewOpen(false);
+      setPreviewUrl(null);
+      toast.success("Dev server stopped");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to stop");
+    }
+  }
+
+  async function handleGithub() {
+    const repo = window.prompt("GitHub repo (owner/repo):", "");
+    if (!repo) return;
+    const branch = window.prompt("Branch:", "main") || "main";
+    const message = window.prompt("Commit message:", "Update from NimIDE") || "Update from NimIDE";
+    const t = toast.loading(`Pushing ${files.length} files to ${repo}…`);
+    try {
+      const res = await pushFn({ data: { projectId, repo, branch, message } });
+      toast.success(`Pushed to ${repo} (${res.files} files)`, { id: t });
+      window.open(res.url, "_blank");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Push failed";
+      toast.error(msg, { id: t });
+      if (/GITHUB_TOKEN/.test(msg)) {
+        toast.info("Add GITHUB_TOKEN in Backend → Secrets and try again.");
+      }
+    }
+  }
+
+  async function handleVercel() {
+    const name = window.prompt("Vercel project name (optional):", projectName) || undefined;
+    const t = toast.loading("Deploying to Vercel…");
+    try {
+      const res = await deployFn({ data: { projectId, projectName: name, target: "production" } });
+      toast.success(`Deployed: ${res.url}`, { id: t });
+      if (res.url) window.open(res.url, "_blank");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Deploy failed";
+      toast.error(msg, { id: t });
+      if (/VERCEL_TOKEN/.test(msg)) {
+        toast.info("Add VERCEL_TOKEN in Backend → Secrets and try again.");
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="h-screen grid place-items-center text-muted-foreground text-sm">
@@ -207,8 +280,13 @@ function IdePage() {
     <div className="h-screen flex flex-col bg-background text-foreground">
       <TopBar
         projectName={projectName}
-        projectId={projectId}
+        running={starting}
+        previewOpen={previewOpen}
         onBack={() => navigate({ to: "/dashboard" })}
+        onRun={handleRun}
+        onStop={handleStop}
+        onGithub={handleGithub}
+        onVercel={handleVercel}
       />
       <div className="flex-1 min-h-0">
         <PanelGroup orientation="horizontal">
@@ -224,24 +302,52 @@ function IdePage() {
           </Panel>
           <PanelResizeHandle className="w-px bg-border hover:bg-primary/40 transition-colors" />
 
-          {/* Center: editor + terminal */}
+          {/* Center: editor/preview toggle + bottom (terminal / logs) */}
           <Panel defaultSize={56} minSize={30}>
             <PanelGroup orientation="vertical">
               <Panel defaultSize={70} minSize={20}>
-                <EditorPane
-                  files={files}
-                  openTabs={openTabs}
-                  activeId={activeId}
-                  dirty={dirty}
-                  value={activeValue}
-                  onSelectTab={setActiveId}
-                  onCloseTab={closeTab}
-                  onChange={onChange}
-                />
+                <div className="h-full flex flex-col">
+                  {previewOpen && (
+                    <div className="flex items-center gap-1 border-b bg-panel px-2 py-1">
+                      <button
+                        onClick={() => setPreviewOpen(false)}
+                        className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${!previewOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <CodeIcon className="size-3" /> Code
+                      </button>
+                      <button
+                        onClick={() => setPreviewOpen(true)}
+                        className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${previewOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <Eye className="size-3" /> Preview
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex-1 min-h-0">
+                    {previewOpen ? (
+                      <PreviewPanel
+                        key={previewNonce}
+                        url={previewUrl}
+                        onReload={() => setPreviewNonce((n) => n + 1)}
+                      />
+                    ) : (
+                      <EditorPane
+                        files={files}
+                        openTabs={openTabs}
+                        activeId={activeId}
+                        dirty={dirty}
+                        value={activeValue}
+                        onSelectTab={setActiveId}
+                        onCloseTab={closeTab}
+                        onChange={onChange}
+                      />
+                    )}
+                  </div>
+                </div>
               </Panel>
               <PanelResizeHandle className="h-px bg-border hover:bg-primary/40 transition-colors" />
               <Panel defaultSize={30} minSize={10}>
-                <BottomTabs projectId={projectId} />
+                <BottomTabs projectId={projectId} tab={bottomTab} setTab={setBottomTab} />
               </Panel>
             </PanelGroup>
           </Panel>
@@ -257,8 +363,15 @@ function IdePage() {
   );
 }
 
-function BottomTabs({ projectId }: { projectId: string }) {
-  const [tab, setTab] = useState<"terminal" | "preview">("terminal");
+function BottomTabs({
+  projectId,
+  tab,
+  setTab,
+}: {
+  projectId: string;
+  tab: "terminal" | "logs";
+  setTab: (t: "terminal" | "logs") => void;
+}) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1 border-b bg-panel px-2 py-1">
@@ -269,18 +382,19 @@ function BottomTabs({ projectId }: { projectId: string }) {
           <TerminalIcon className="size-3" /> Terminal
         </button>
         <button
-          onClick={() => setTab("preview")}
-          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${tab === "preview" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setTab("logs")}
+          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${tab === "logs" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          <Eye className="size-3" /> Preview
+          <FileText className="size-3" /> Logs
         </button>
       </div>
       <div className="flex-1 min-h-0">
-        {tab === "terminal" ? <TerminalPanel projectId={projectId} /> : <PreviewPanel projectId={projectId} />}
+        {tab === "terminal" ? <TerminalPanel projectId={projectId} /> : <LogsPanel projectId={projectId} active={tab === "logs"} />}
       </div>
     </div>
   );
 }
+
 
 function extLang(path: string): string | null {
   const ext = path.split(".").pop()?.toLowerCase();
