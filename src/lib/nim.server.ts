@@ -5,6 +5,7 @@ export const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 export const NIM_MODELS = [
   { id: "moonshotai/kimi-k2.6", label: "kimi k2.6 (Fast)" },
+  { id: "z-ai/glm-5.2", label: "Glm 5.2" },
   {
     id: "nvidia/nemotron-3-ultra-550b-a55b",
     label: "Nemotron ultra",
