@@ -6,8 +6,8 @@ export const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 export const NIM_MODELS = [
   { id: "moonshotai/kimi-k2.6", label: "kimi k2.6 (Fast)" },
   {
-    id: "qwen/qwen3.5-122b-a10b",
-    label: "Qwen3.5 122b",
+    id: "nvidia/nemotron-3-ultra-550b-a55b",
+    label: "Nemotron ultra",
   },
   { id: "minimaxai/minimax-m3", label: "Mini Maxx (coding)" },
   { id: "deepseek-ai/deepseek-v4-pro", label: "Deepseek v4 pro" },
