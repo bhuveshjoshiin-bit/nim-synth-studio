@@ -1,4 +1,4 @@
-import { createFileRoute, useParams, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -7,13 +7,19 @@ import {
   Panel,
   Separator as PanelResizeHandle,
 } from "react-resizable-panels";
+import { useServerFn } from "@tanstack/react-start";
 import { FileTree, type FileNode } from "@/components/ide/FileTree";
 import { EditorPane } from "@/components/ide/EditorPane";
 import { TerminalPanel } from "@/components/ide/TerminalPanel";
 import { PreviewPanel } from "@/components/ide/PreviewPanel";
+import { LogsPanel } from "@/components/ide/LogsPanel";
 import { AIChatPanel } from "@/components/ide/AIChatPanel";
 import { TopBar } from "@/components/ide/TopBar";
-import { Terminal as TerminalIcon, Eye } from "lucide-react";
+import { autoStartDevServer, stopDevServer } from "@/lib/sandbox.functions";
+import { pushProjectToGithub } from "@/lib/github.functions";
+import { deployToVercel } from "@/lib/vercel.functions";
+import { Terminal as TerminalIcon, FileText, Code as CodeIcon, Eye } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/ide/$projectId")({
   head: () => ({ meta: [{ title: "Workspace — NimIDE" }] }),
