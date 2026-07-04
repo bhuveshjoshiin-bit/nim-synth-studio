@@ -1,46 +1,13 @@
-import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { autoStartDevServer, deployProject } from "@/lib/sandbox.functions";
-import { Eye, RefreshCw, ExternalLink, Loader2, Play, Share2, Copy } from "lucide-react";
+import { Eye, RefreshCw, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 
-export function PreviewPanel({ projectId }: { projectId: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [deploying, setDeploying] = useState(false);
-  const [nonce, setNonce] = useState(0);
-  const start = useServerFn(autoStartDevServer);
-  const deploy = useServerFn(deployProject);
-
-  async function launch() {
-    setLoading(true);
-    try {
-      const { url } = await start({ data: { projectId } });
-      setUrl(url);
-      setNonce((n) => n + 1);
-      toast.success("Dev server started on port 3000");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function share() {
-    setDeploying(true);
-    try {
-      const { url } = await deploy({ data: { projectId } });
-      await navigator.clipboard.writeText(url).catch(() => {});
-      setUrl(url);
-      setNonce((n) => n + 1);
-      toast.success("Share link copied to clipboard");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to deploy");
-    } finally {
-      setDeploying(false);
-    }
-  }
-
+export function PreviewPanel({
+  url,
+  onReload,
+}: {
+  url: string | null;
+  onReload: () => void;
+}) {
   return (
     <div className="h-full flex flex-col bg-panel">
       <div className="flex items-center justify-between px-3 py-1.5 border-b gap-2">
@@ -50,22 +17,12 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={launch}
-            disabled={loading}
-            className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
-            title={url ? "Restart dev server" : "Start dev server on port 3000"}
+            onClick={onReload}
+            disabled={!url}
+            className="text-xs px-2 py-1 rounded border hover:bg-accent disabled:opacity-40 flex items-center gap-1"
+            title="Reload iframe"
           >
-            {loading ? <Loader2 className="size-3 animate-spin" /> : url ? <RefreshCw className="size-3" /> : <Play className="size-3" />}
-            {url ? "Reload" : "Start"}
-          </button>
-          <button
-            onClick={share}
-            disabled={deploying}
-            className="text-xs px-2 py-1 rounded border hover:bg-accent flex items-center gap-1"
-            title="Copy shareable link"
-          >
-            {deploying ? <Loader2 className="size-3 animate-spin" /> : <Share2 className="size-3" />}
-            Share
+            <RefreshCw className="size-3" /> Reload
           </button>
           {url && (
             <>
@@ -92,7 +49,6 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
       <div className="flex-1 min-h-0 bg-background">
         {url ? (
           <iframe
-            key={nonce}
             src={url}
             title="Sandbox preview"
             className="w-full h-full border-0 bg-white"
@@ -102,7 +58,7 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
           <div className="h-full grid place-items-center text-xs text-muted-foreground text-center p-4">
             <div>
               <p>No preview yet.</p>
-              <p className="mt-1">Click <b>Start</b> — the dev server binds to port 3000 automatically.</p>
+              <p className="mt-1">Click <b>Run</b> in the top bar to start the dev server on port 3000.</p>
             </div>
           </div>
         )}

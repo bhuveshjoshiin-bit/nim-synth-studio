@@ -118,8 +118,13 @@ export const autoStartDevServer = createServerFn({ method: "POST" })
     const list = files ?? [];
     await syncFiles(sandbox, list);
 
+    // If something is already listening on 3000, don't restart.
+    const check = await runCommand(sandbox, "(ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null) | grep -q ':3000 ' && echo up || echo down");
+    if (check.stdout.trim().endsWith("up")) {
+      return { url: getPreviewUrl(sandbox, 3000), sandboxId: sandbox.sandboxId, alreadyRunning: true };
+    }
+
     const paths = new Set(list.map((f) => f.path));
-    // Detect project kind
     let startCmd: string;
     if (paths.has("package.json")) {
       const pkg = list.find((f) => f.path === "package.json");
@@ -128,39 +133,44 @@ export const autoStartDevServer = createServerFn({ method: "POST" })
       const run = hasDev
         ? "PORT=3000 nohup npm run dev -- --port 3000 --host 0.0.0.0 >/tmp/dev.log 2>&1 &"
         : "PORT=3000 nohup npx --yes serve -l 3000 . >/tmp/dev.log 2>&1 &";
-      startCmd = `pkill -f 'node|vite|next|serve' 2>/dev/null; ${install}; ${run} echo started`;
+      startCmd = `${install}; ${run} echo started`;
     } else if (paths.has("index.html")) {
-      startCmd = "pkill -f 'http.server|serve' 2>/dev/null; nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 & echo started";
+      startCmd = "nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 & echo started";
     } else {
-      startCmd = "pkill -f 'http.server' 2>/dev/null; nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 & echo started";
+      startCmd = "nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 & echo started";
     }
 
     await runCommand(sandbox, startCmd);
     const url = getPreviewUrl(sandbox, 3000);
-    await supabase.from("projects").update({ sandbox_id: sandbox.sandboxId }).eq("id", data.projectId);
-    return { url, sandboxId: sandbox.sandboxId };
+    return { url, sandboxId: sandbox.sandboxId, alreadyRunning: false };
   });
 
-// Phase 5: shareable deploy link. E2B preview URLs are already publicly
-// reachable; we surface the port-3000 URL and persist it so the user can share.
-const DeployInput = z.object({ projectId: z.string().uuid() });
+const TailInput = z.object({ projectId: z.string().uuid(), lines: z.number().int().min(1).max(500).default(200) });
 
-export const deployProject = createServerFn({ method: "POST" })
+export const tailDevLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => DeployInput.parse(d))
+  .inputValidator((d: unknown) => TailInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const project = await ensureProject(supabase, userId, data.projectId);
-    const { getOrCreateSandbox, getPreviewUrl, syncFiles, runCommand } = await import("./e2b.server");
+    if (!project.sandbox_id) return { log: "" };
+    const { getOrCreateSandbox, runCommand } = await import("./e2b.server");
     const sandbox = await getOrCreateSandbox(project.sandbox_id);
-    if (sandbox.sandboxId !== project.sandbox_id) {
-      await supabase.from("projects").update({ sandbox_id: sandbox.sandboxId }).eq("id", data.projectId);
-    }
-    const { data: files } = await supabase.from("files").select("path,content").eq("project_id", data.projectId);
-    await syncFiles(sandbox, files ?? []);
-    // Best-effort: ensure something is serving on 3000
-    await runCommand(sandbox, "pgrep -f ':3000' >/dev/null || (nohup python3 -m http.server 3000 --bind 0.0.0.0 >/tmp/dev.log 2>&1 &) ; echo ok");
-    const url = getPreviewUrl(sandbox, 3000);
-    return { url, sandboxId: sandbox.sandboxId };
+    const r = await runCommand(sandbox, `tail -n ${data.lines} /tmp/dev.log 2>/dev/null || true`);
+    return { log: r.stdout.slice(-8000) };
   });
+
+export const stopDevServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => AutoStartInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const project = await ensureProject(supabase, userId, data.projectId);
+    if (!project.sandbox_id) return { ok: true };
+    const { getOrCreateSandbox, runCommand } = await import("./e2b.server");
+    const sandbox = await getOrCreateSandbox(project.sandbox_id);
+    await runCommand(sandbox, "pkill -f 'node|vite|next|http.server|serve' 2>/dev/null; echo stopped");
+    return { ok: true };
+  });
+
 
