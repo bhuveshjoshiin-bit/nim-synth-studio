@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { loadUserToken } from "./integrations.functions";
 import { z } from "zod";
+
 
 const DeployInput = z.object({
   projectId: z.string().uuid(),
@@ -16,9 +18,10 @@ export const deployToVercel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => DeployInput.parse(d))
   .handler(async ({ data, context }) => {
-    const token = process.env.VERCEL_TOKEN;
-    if (!token) throw new Error("VERCEL_TOKEN is not configured. Add it in project secrets.");
     const { supabase, userId } = context;
+    const token = await loadUserToken(supabase, userId, "vercel");
+    if (!token) throw new Error("NOT_CONNECTED: Connect your Vercel account first.");
+
 
     const { data: project } = await supabase
       .from("projects").select("id,name").eq("id", data.projectId).eq("owner_id", userId).maybeSingle();
