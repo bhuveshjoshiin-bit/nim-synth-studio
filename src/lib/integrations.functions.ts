@@ -12,8 +12,7 @@ export const saveUserIntegration = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SaveInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Best-effort: verify the token by hitting the provider's `/me` endpoint.
-    let meta: Record<string, unknown> = {};
+    let meta: { login?: string; avatar_url?: string; username?: string; email?: string } = {};
     if (data.provider === "github") {
       const r = await fetch("https://api.github.com/user", {
         headers: { Authorization: `Bearer ${data.token}`, Accept: "application/vnd.github+json" },
@@ -30,11 +29,12 @@ export const saveUserIntegration = createServerFn({ method: "POST" })
       meta = { username: j.user.username, email: j.user.email };
     }
     const { error } = await supabase.from("user_integrations").upsert(
-      { user_id: userId, provider: data.provider, token: data.token, meta },
+      { user_id: userId, provider: data.provider, token: data.token, meta: meta as any },
       { onConflict: "user_id,provider" },
     );
     if (error) throw new Error(error.message);
     return { ok: true, meta };
+
   });
 
 const StatusInput = z.object({});
