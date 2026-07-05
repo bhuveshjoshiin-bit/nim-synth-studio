@@ -96,12 +96,14 @@ export const sendChatMessage = createServerFn({ method: "POST" })
 
     const { data: history } = await supabase
       .from("chat_messages").select("role,content,tool_calls,tool_call_id")
-      .eq("project_id", data.projectId).order("created_at", { ascending: true }).limit(40);
+      .eq("project_id", data.projectId).order("created_at", { ascending: false }).limit(24);
+    const historyAsc = (history ?? []).slice().reverse();
 
     const { data: filesIndex } = await supabase
-      .from("files").select("path").eq("project_id", data.projectId).order("path");
-    const fileList = (filesIndex ?? []).map((f) => f.path).join("\n") || "(empty project)";
-    const contextSystem = `Current project files:\n${fileList}`;
+      .from("files").select("path").eq("project_id", data.projectId).order("path").limit(400);
+    const paths = (filesIndex ?? []).map((f) => f.path);
+    const fileList = paths.length ? paths.slice(0, 400).join("\n") + (paths.length >= 400 ? "\n…(truncated)" : "") : "(empty project)";
+    const contextSystem = `Current project files (${paths.length}):\n${fileList}`;
 
     await supabase.from("chat_messages").insert({
       project_id: data.projectId, role: "user", content: data.message,
@@ -110,26 +112,42 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     const { callNim } = await import("./nim.server");
     type NimMsg = import("./nim.server").NimMessage;
 
-    const messages: NimMsg[] = [
+    let messages: NimMsg[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "system", content: contextSystem },
-      ...((history ?? []).map((m) => {
-        const base: NimMsg = { role: m.role as NimMsg["role"], content: m.content ?? "" };
+      ...historyAsc.map((m) => {
+        const base: NimMsg = { role: m.role as NimMsg["role"], content: cap(m.content ?? "", 2000) };
         if (m.tool_calls) base.tool_calls = m.tool_calls as unknown as NimMsg["tool_calls"];
         if (m.tool_call_id) base.tool_call_id = m.tool_call_id;
         return base;
-      })),
+      }),
       { role: "user", content: data.message },
     ];
+    messages = trimMessages(messages);
 
-    const MAX_STEPS = 50;
+    const MAX_STEPS = 60;
     let step = 0;
     let finalAssistant = "";
     const recentContents: string[] = [];
 
+    async function callWithRetry() {
+      try {
+        return await callNim({ model, messages, tools: TOOLS, max_tokens: 3500 });
+      } catch (err) {
+        // One retry after aggressive trim — recovers from token-limit / transient upstream errors mid-generation.
+        messages = trimMessages(messages.slice(0, 2).concat(messages.slice(-8)));
+        return await callNim({ model, messages, tools: TOOLS, max_tokens: 3500 });
+      }
+    }
+
     while (step < MAX_STEPS) {
       step++;
-      const response = await callNim({ model, messages, tools: TOOLS, max_tokens: 4000 });
+      messages = trimMessages(messages);
+      const response = await callWithRetry();
+      const choice = response.choices[0];
+      if (!choice) throw new Error("Empty response from NVIDIA NIM");
+      const msg = choice.message;
+      const contentStr = (msg.content ?? "").trim();
       const choice = response.choices[0];
       if (!choice) throw new Error("Empty response from NVIDIA NIM");
       const msg = choice.message;
