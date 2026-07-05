@@ -148,10 +148,6 @@ export const sendChatMessage = createServerFn({ method: "POST" })
       if (!choice) throw new Error("Empty response from NVIDIA NIM");
       const msg = choice.message;
       const contentStr = (msg.content ?? "").trim();
-      const choice = response.choices[0];
-      if (!choice) throw new Error("Empty response from NVIDIA NIM");
-      const msg = choice.message;
-      const contentStr = (msg.content ?? "").trim();
 
       // Anti-loop: if the model keeps emitting the same content with no tool calls, bail.
       const normalized = contentStr.slice(0, 400);
