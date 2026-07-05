@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { loadUserToken } from "./integrations.functions";
 import { z } from "zod";
+
 
 const PushInput = z.object({
   projectId: z.string().uuid(),
@@ -50,9 +52,10 @@ export const pushProjectToGithub = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PushInput.parse(d))
   .handler(async ({ data, context }) => {
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) throw new Error("GITHUB_TOKEN is not configured. Add it in project secrets.");
     const { supabase, userId } = context;
+    const token = await loadUserToken(supabase, userId, "github");
+    if (!token) throw new Error("NOT_CONNECTED: Connect your GitHub account first.");
+
 
     const { data: project } = await supabase
       .from("projects").select("id").eq("id", data.projectId).eq("owner_id", userId).maybeSingle();
