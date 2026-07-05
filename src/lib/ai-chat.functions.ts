@@ -53,9 +53,33 @@ function languageFromPath(path: string): string | null {
   return ext ? (map[ext] ?? ext) : null;
 }
 
-const MAX_TOOL_OUTPUT = 4000;
-function cap(s: string): string {
-  return s.length > MAX_TOOL_OUTPUT ? s.slice(0, MAX_TOOL_OUTPUT) + `\n…[truncated ${s.length - MAX_TOOL_OUTPUT} chars]` : s;
+const MAX_TOOL_OUTPUT = 2500;
+function cap(s: string, max = MAX_TOOL_OUTPUT): string {
+  return s.length > max ? s.slice(0, max) + `\n…[truncated ${s.length - max} chars]` : s;
+}
+
+// Rough token budget guard. NIM models on our tier choke past ~28k prompt tokens.
+// We keep the running message array under a hard char budget (~4 chars/token).
+const MAX_PROMPT_CHARS = 90_000;
+function trimMessages<T extends { role: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string }>(
+  msgs: T[],
+): T[] {
+  // Always keep the two leading system messages + the last user turn.
+  let total = msgs.reduce((n, m) => n + (m.content?.length ?? 0) + 200, 0);
+  if (total <= MAX_PROMPT_CHARS) return msgs;
+  const head = msgs.slice(0, 2); // system prompts
+  const tail = msgs.slice(2);
+  // Drop oldest non-system turns until under budget, but never break a tool_call/tool pair.
+  while (total > MAX_PROMPT_CHARS && tail.length > 4) {
+    const dropped = tail.shift()!;
+    total -= (dropped.content?.length ?? 0) + 200;
+    // If we dropped an assistant with tool_calls, also drop the immediately-following tool responses
+    while (tail.length && tail[0].role === "tool") {
+      const t = tail.shift()!;
+      total -= (t.content?.length ?? 0) + 200;
+    }
+  }
+  return [...head, ...tail];
 }
 
 export const sendChatMessage = createServerFn({ method: "POST" })
