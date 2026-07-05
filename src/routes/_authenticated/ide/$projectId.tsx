@@ -18,7 +18,9 @@ import { TopBar } from "@/components/ide/TopBar";
 import { autoStartDevServer, stopDevServer } from "@/lib/sandbox.functions";
 import { pushProjectToGithub } from "@/lib/github.functions";
 import { deployToVercel } from "@/lib/vercel.functions";
+import { saveUserIntegration } from "@/lib/integrations.functions";
 import { Terminal as TerminalIcon, FileText, Code as CodeIcon, Eye } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/_authenticated/ide/$projectId")({
@@ -205,6 +207,8 @@ function IdePage() {
   const stopFn = useServerFn(stopDevServer);
   const pushFn = useServerFn(pushProjectToGithub);
   const deployFn = useServerFn(deployToVercel);
+  const saveIntegration = useServerFn(saveUserIntegration);
+
 
   async function handleRun() {
     setStarting(true);
@@ -223,13 +227,43 @@ function IdePage() {
   }
 
   async function handleStop() {
+    setStarting(true);
     try {
       await stopFn({ data: { projectId } });
-      setPreviewOpen(false);
-      setPreviewUrl(null);
       toast.success("Dev server stopped");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to stop");
+    } finally {
+      // Always flip UI back so the Run button reappears, even on transient errors.
+      setPreviewOpen(false);
+      setPreviewUrl(null);
+      setStarting(false);
+    }
+  }
+
+  async function ensureConnected(provider: "github" | "vercel"): Promise<boolean> {
+    const label = provider === "github" ? "GitHub" : "Vercel";
+    const url =
+      provider === "github"
+        ? "https://github.com/settings/tokens/new?scopes=repo&description=NimIDE"
+        : "https://vercel.com/account/tokens";
+    const token = window.prompt(
+      `Connect your ${label} account.\n\nCreate a personal access token at:\n${url}\n\nThen paste it here (stored per-user, never shared).`,
+      "",
+    );
+    if (!token) return false;
+    const t = toast.loading(`Verifying ${label} token…`);
+    try {
+      const res = await saveIntegration({ data: { provider, token: token.trim() } });
+      const who =
+        (res.meta as { login?: string; username?: string }).login ??
+        (res.meta as { login?: string; username?: string }).username ??
+        "connected";
+      toast.success(`${label} connected as ${who}`, { id: t });
+      return true;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Failed to connect ${label}`, { id: t });
+      return false;
     }
   }
 
@@ -238,35 +272,48 @@ function IdePage() {
     if (!repo) return;
     const branch = window.prompt("Branch:", "main") || "main";
     const message = window.prompt("Commit message:", "Update from NimIDE") || "Update from NimIDE";
-    const t = toast.loading(`Pushing ${files.length} files to ${repo}…`);
-    try {
-      const res = await pushFn({ data: { projectId, repo, branch, message } });
-      toast.success(`Pushed to ${repo} (${res.files} files)`, { id: t });
-      window.open(res.url, "_blank");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Push failed";
-      toast.error(msg, { id: t });
-      if (/GITHUB_TOKEN/.test(msg)) {
-        toast.info("Add GITHUB_TOKEN in Backend → Secrets and try again.");
+    const doPush = async () => {
+      const t = toast.loading(`Pushing ${files.length} files to ${repo}…`);
+      try {
+        const res = await pushFn({ data: { projectId, repo, branch, message } });
+        toast.success(`Pushed to ${repo} (${res.files} files)`, { id: t });
+        window.open(res.url, "_blank");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Push failed";
+        if (/NOT_CONNECTED/.test(msg)) {
+          toast.dismiss(t);
+          const ok = await ensureConnected("github");
+          if (ok) await doPush();
+        } else {
+          toast.error(msg, { id: t });
+        }
       }
-    }
+    };
+    await doPush();
   }
 
   async function handleVercel() {
     const name = window.prompt("Vercel project name (optional):", projectName) || undefined;
-    const t = toast.loading("Deploying to Vercel…");
-    try {
-      const res = await deployFn({ data: { projectId, projectName: name, target: "production" } });
-      toast.success(`Deployed: ${res.url}`, { id: t });
-      if (res.url) window.open(res.url, "_blank");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Deploy failed";
-      toast.error(msg, { id: t });
-      if (/VERCEL_TOKEN/.test(msg)) {
-        toast.info("Add VERCEL_TOKEN in Backend → Secrets and try again.");
+    const doDeploy = async () => {
+      const t = toast.loading("Deploying to Vercel…");
+      try {
+        const res = await deployFn({ data: { projectId, projectName: name, target: "production" } });
+        toast.success(`Deployed: ${res.url}`, { id: t });
+        if (res.url) window.open(res.url, "_blank");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Deploy failed";
+        if (/NOT_CONNECTED/.test(msg)) {
+          toast.dismiss(t);
+          const ok = await ensureConnected("vercel");
+          if (ok) await doDeploy();
+        } else {
+          toast.error(msg, { id: t });
+        }
       }
-    }
+    };
+    await doDeploy();
   }
+
 
   if (loading) {
     return (
