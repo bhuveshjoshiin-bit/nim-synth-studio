@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listNimModels, sendChatMessage } from "@/lib/ai-chat.functions";
-import { Sparkles, Send, Loader2, Wrench } from "lucide-react";
+import { Sparkles, Send, Loader2, Wrench, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 type Msg = {
