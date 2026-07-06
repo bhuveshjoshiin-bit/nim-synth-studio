@@ -144,18 +144,28 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
           <Sparkles className="size-4 text-primary" />
           AI Assistant
         </div>
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="text-xs bg-input border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-ring max-w-[180px]"
-          title="NVIDIA NIM model"
-        >
-          {(models.length ? models : [{ id: model, label: model }]).map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="text-xs flex items-center gap-1 px-2 py-1 rounded border hover:bg-accent"
+            title="Start a new chat (clears history)"
+          >
+            <Plus className="size-3" /> New
+          </button>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="text-xs bg-input border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-ring max-w-[180px]"
+            title="NVIDIA NIM model"
+          >
+            {(models.length ? models : [{ id: model, label: model }]).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
