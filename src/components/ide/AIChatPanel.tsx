@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listNimModels, sendChatMessage } from "@/lib/ai-chat.functions";
-import { Sparkles, Send, Loader2, Wrench } from "lucide-react";
+import { Sparkles, Send, Loader2, Wrench, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 type Msg = {
@@ -37,20 +37,25 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
   }, [fetchModels]);
 
   async function refresh() {
-    const { data } = await supabase
+    // Fetch the NEWEST rows (desc + limit), then reverse for chronological display.
+    const { data, error } = await supabase
       .from("chat_messages")
       .select("id,role,content,tool_calls,tool_call_id,model,created_at")
       .eq("project_id", projectId)
-      .order("created_at", { ascending: true })
-      .limit(200);
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) {
+      console.error("[AIChatPanel] refresh error:", error);
+      return;
+    }
     if (!data) return;
+    const asc = data.slice().reverse();
     setMessages((prev) => {
-      // Keep any optimistic messages not yet persisted server-side.
-      const serverIds = new Set(data.map((d) => d.id));
+      const serverIds = new Set(asc.map((d) => d.id));
       const pending = prev.filter(
         (m) => m.id.startsWith("optimistic-") && !serverIds.has(m.id),
       );
-      return [...data, ...pending];
+      return [...asc, ...pending];
     });
   }
 
@@ -76,13 +81,27 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // Polling fallback while the AI is working, in case realtime is delayed.
+  // Always poll gently as a realtime fallback; faster while the AI is working.
   useEffect(() => {
-    if (!sending) return;
-    const iv = setInterval(() => refresh(), 1500);
+    const iv = setInterval(() => refresh(), sending ? 1200 : 4000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sending, projectId]);
+
+  async function onNewChat() {
+    if (sending) {
+      toast.error("Wait for the current response to finish");
+      return;
+    }
+    if (!confirm("Start a new chat? This clears the current conversation.")) return;
+    const { error } = await supabase.from("chat_messages").delete().eq("project_id", projectId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setMessages([]);
+    toast.success("New chat started");
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -125,18 +144,28 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
           <Sparkles className="size-4 text-primary" />
           AI Assistant
         </div>
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="text-xs bg-input border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-ring max-w-[180px]"
-          title="NVIDIA NIM model"
-        >
-          {(models.length ? models : [{ id: model, label: model }]).map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="text-xs flex items-center gap-1 px-2 py-1 rounded border hover:bg-accent"
+            title="Start a new chat (clears history)"
+          >
+            <Plus className="size-3" /> New
+          </button>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="text-xs bg-input border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-ring max-w-[180px]"
+            title="NVIDIA NIM model"
+          >
+            {(models.length ? models : [{ id: model, label: model }]).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
