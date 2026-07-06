@@ -43,10 +43,19 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
       .eq("project_id", projectId)
       .order("created_at", { ascending: true })
       .limit(200);
-    setMessages(data ?? []);
+    if (!data) return;
+    setMessages((prev) => {
+      // Keep any optimistic messages not yet persisted server-side.
+      const serverIds = new Set(data.map((d) => d.id));
+      const pending = prev.filter(
+        (m) => m.id.startsWith("optimistic-") && !serverIds.has(m.id),
+      );
+      return [...data, ...pending];
+    });
   }
 
   useEffect(() => {
+    setMessages([]);
     refresh();
     const channel = supabase
       .channel(`chat-${projectId}`)
@@ -67,6 +76,14 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // Polling fallback while the AI is working, in case realtime is delayed.
+  useEffect(() => {
+    if (!sending) return;
+    const iv = setInterval(() => refresh(), 1500);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sending, projectId]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
@@ -77,12 +94,27 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
     if (!message || sending) return;
     setInput("");
     setSending(true);
+    // Optimistic user bubble so the UI reacts immediately.
+    const tempId = `optimistic-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        role: "user",
+        content: message,
+        tool_calls: null,
+        tool_call_id: null,
+        model: null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
     try {
       await send({ data: { projectId, message, model } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "AI request failed");
     } finally {
       setSending(false);
+      refresh();
     }
   }
 
