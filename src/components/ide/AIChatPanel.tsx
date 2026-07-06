@@ -37,20 +37,25 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
   }, [fetchModels]);
 
   async function refresh() {
-    const { data } = await supabase
+    // Fetch the NEWEST rows (desc + limit), then reverse for chronological display.
+    const { data, error } = await supabase
       .from("chat_messages")
       .select("id,role,content,tool_calls,tool_call_id,model,created_at")
       .eq("project_id", projectId)
-      .order("created_at", { ascending: true })
-      .limit(200);
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) {
+      console.error("[AIChatPanel] refresh error:", error);
+      return;
+    }
     if (!data) return;
+    const asc = data.slice().reverse();
     setMessages((prev) => {
-      // Keep any optimistic messages not yet persisted server-side.
-      const serverIds = new Set(data.map((d) => d.id));
+      const serverIds = new Set(asc.map((d) => d.id));
       const pending = prev.filter(
         (m) => m.id.startsWith("optimistic-") && !serverIds.has(m.id),
       );
-      return [...data, ...pending];
+      return [...asc, ...pending];
     });
   }
 
@@ -76,13 +81,27 @@ export function AIChatPanel({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // Polling fallback while the AI is working, in case realtime is delayed.
+  // Always poll gently as a realtime fallback; faster while the AI is working.
   useEffect(() => {
-    if (!sending) return;
-    const iv = setInterval(() => refresh(), 1500);
+    const iv = setInterval(() => refresh(), sending ? 1200 : 4000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sending, projectId]);
+
+  async function onNewChat() {
+    if (sending) {
+      toast.error("Wait for the current response to finish");
+      return;
+    }
+    if (!confirm("Start a new chat? This clears the current conversation.")) return;
+    const { error } = await supabase.from("chat_messages").delete().eq("project_id", projectId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setMessages([]);
+    toast.success("New chat started");
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
