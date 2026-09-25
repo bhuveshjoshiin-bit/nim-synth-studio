@@ -14,40 +14,201 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_runs: {
+        Row: {
+          created_at: string
+          custom_prompt: string | null
+          driver: string
+          error: string | null
+          id: string
+          label: string | null
+          lease_until: string | null
+          messages: Json
+          mode: string
+          model: string
+          parent_run_id: string | null
+          parent_tool_call_id: string | null
+          project_id: string
+          result: string | null
+          status: string
+          step: number
+          task: string
+          thread_id: string | null
+          todos: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_prompt?: string | null
+          driver?: string
+          error?: string | null
+          id?: string
+          label?: string | null
+          lease_until?: string | null
+          messages?: Json
+          mode?: string
+          model: string
+          parent_run_id?: string | null
+          parent_tool_call_id?: string | null
+          project_id: string
+          result?: string | null
+          status?: string
+          step?: number
+          task?: string
+          thread_id?: string | null
+          todos?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_prompt?: string | null
+          driver?: string
+          error?: string | null
+          id?: string
+          label?: string | null
+          lease_until?: string | null
+          messages?: Json
+          mode?: string
+          model?: string
+          parent_run_id?: string | null
+          parent_tool_call_id?: string | null
+          project_id?: string
+          result?: string | null
+          status?: string
+          step?: number
+          task?: string
+          thread_id?: string | null
+          todos?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_runs_parent_run_id_fkey"
+            columns: ["parent_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
+          agent_label: string | null
           content: string
           created_at: string
           id: string
           model: string | null
           project_id: string
+          reasoning: string | null
           role: string
+          run_id: string | null
+          status: string | null
+          thread_id: string | null
           tool_call_id: string | null
           tool_calls: Json | null
         }
         Insert: {
+          agent_label?: string | null
           content?: string
           created_at?: string
           id?: string
           model?: string | null
           project_id: string
+          reasoning?: string | null
           role: string
+          run_id?: string | null
+          status?: string | null
+          thread_id?: string | null
           tool_call_id?: string | null
           tool_calls?: Json | null
         }
         Update: {
+          agent_label?: string | null
           content?: string
           created_at?: string
           id?: string
           model?: string | null
           project_id?: string
+          reasoning?: string | null
           role?: string
+          run_id?: string | null
+          status?: string | null
+          thread_id?: string | null
           tool_call_id?: string | null
           tool_calls?: Json | null
         }
         Relationships: [
           {
             foreignKeyName: "chat_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_threads: {
+        Row: {
+          created_at: string
+          custom_prompt: string | null
+          id: string
+          mode: string
+          model: string | null
+          project_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_prompt?: string | null
+          id?: string
+          mode?: string
+          model?: string | null
+          project_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_prompt?: string | null
+          id?: string
+          mode?: string
+          model?: string | null
+          project_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_threads_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -137,6 +298,56 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          comments: Json
+          content: string
+          created_at: string
+          id: string
+          model: string | null
+          owner_id: string
+          project_id: string | null
+          prompt: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          comments?: Json
+          content?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          owner_id: string
+          project_id?: string | null
+          prompt: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          comments?: Json
+          content?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          owner_id?: string
+          project_id?: string | null
+          prompt?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -173,6 +384,7 @@ export type Database = {
           owner_id: string
           prd: Json | null
           sandbox_id: string | null
+          synced_at: string | null
           template: string | null
           updated_at: string
           vercel_project_id: string | null
@@ -188,6 +400,7 @@ export type Database = {
           owner_id: string
           prd?: Json | null
           sandbox_id?: string | null
+          synced_at?: string | null
           template?: string | null
           updated_at?: string
           vercel_project_id?: string | null
@@ -203,6 +416,7 @@ export type Database = {
           owner_id?: string
           prd?: Json | null
           sandbox_id?: string | null
+          synced_at?: string | null
           template?: string | null
           updated_at?: string
           vercel_project_id?: string | null
